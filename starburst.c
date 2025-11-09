@@ -29,9 +29,13 @@ int main()
     // burst_set_gravity(st, 30);
     // burst_delay_start(st, 0.1f);
 
+    sparkle_write_text(sp, 5, 3, "Starburst");
+    sparkle_write_text(sp, WIDTH / 2 - 1, HEIGHT / 4, "");
+
     while(1)
     {
         sparkle_clear(sp);
+
         for (i = 0; i < count; i++)
         {
             x = burst_get_px(st, i);

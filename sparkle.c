@@ -104,6 +104,7 @@ void sparkle_free(t_sparkle *s)
         free_braille_nta(s->braille);
         free(s->display);
         free(s->buffer);
+        free(s->text.display);
         free(s);
     }
 }
@@ -114,6 +115,14 @@ void sparkle_free(t_sparkle *s)
 void sparkle_clear(t_sparkle *s)
 {
     memset(s->display, 0, s->width * s->height);
+}
+
+/*
+ * clear all text in the display
+ */
+void sparkle_clear_text(t_sparkle *s)
+{
+    memset(s->text.display, 0, s->text.width * s->text.height);
 }
 
 /*
@@ -133,12 +142,16 @@ t_sparkle *sparkle_create(int width, int height)
     s->braille = generate_braille_utf8();
     s->display = malloc(width * height);
     s->buffer = malloc(width * height / 2);
-    if (s->braille == NULL || s->display == NULL || s->buffer == NULL)
+    s->text.width = width / 2 + (width % 2 != 0);
+    s->text.height = height / 4 + (height % 4 != 0);
+    s->text.display = malloc(s->text.width * s->text.height);
+    if (s->braille == NULL || s->display == NULL || s->buffer == NULL || s->text.display == NULL)
     {
         sparkle_free(s);
         return NULL;
     }
     sparkle_clear(s);
+    sparkle_clear_text(s);
     return s;
 }
 
@@ -203,6 +216,35 @@ void sparkle_line(t_sparkle *s, int x0, int y0, int x1, int y1, int c)
 }
 
 /*
+ * write text to the text buffer at text coordinates
+ */
+void sparkle_write_text(t_sparkle *s, int x, int y, char *text)
+{
+    int i;
+
+    if (x < 0 || x >= s->text.width || y < 0 || y >= s->text.height || text == NULL)
+        return;
+    i = y * s->text.width + x;
+    while (x < s->text.width && *text != '\0')
+    {
+        s->text.display[i] = *text;
+        text++;
+        x++;
+        i++;
+    }
+}
+
+/*
+ * write text to the text buffer at pixel coordinates
+ */
+void sparkle_write_text_at_pixel(t_sparkle *s, int x, int y, char *text)
+{
+    if (x < 0 || x >= s->width || y < 0 || y >= s->height || text == NULL)
+        return;
+    sparkle_write_text(s, x / 2, y / 4, text);
+}
+
+/*
  * draw the display buffer on the console
  */
 void sparkle_draw(t_sparkle *s)
@@ -210,7 +252,7 @@ void sparkle_draw(t_sparkle *s)
     char *back;
     int size;
     int code;
-    int x, y;
+    int x, y, i;
 
     // back points to the end of the buffer
     // size is the number of bytes in the buffer
@@ -222,24 +264,35 @@ void sparkle_draw(t_sparkle *s)
     back += 7;
     size += 7;
 
+    i = 0;
     for (y = 0; y < s->height; y += 4)
     {
         for (x = 0; x < s->width; x += 2)
         {
-            // dots on braille chars map to bits in the unicode code point
-            code = 0;
-            if (sparkle_get_pixel(s, (x + 0), (y + 0))) code |= 0x01;
-            if (sparkle_get_pixel(s, (x + 0), (y + 1))) code |= 0x02;
-            if (sparkle_get_pixel(s, (x + 0), (y + 2))) code |= 0x04;
-            if (sparkle_get_pixel(s, (x + 0), (y + 3))) code |= 0x40;
-            if (sparkle_get_pixel(s, (x + 1), (y + 0))) code |= 0x08;
-            if (sparkle_get_pixel(s, (x + 1), (y + 1))) code |= 0x10;
-            if (sparkle_get_pixel(s, (x + 1), (y + 2))) code |= 0x20;
-            if (sparkle_get_pixel(s, (x + 1), (y + 3))) code |= 0x80;
-            // all braille utf-8 chars are 3 bytes
-            memcpy(back, s->braille[code], 3);
-            back += 3;
-            size += 3;
+            if (s->text.display[i] == '\0')
+            {
+                // dots on braille chars map to bits in the unicode code point
+                code = 0;
+                if (sparkle_get_pixel(s, (x + 0), (y + 0))) code |= 0x01;
+                if (sparkle_get_pixel(s, (x + 0), (y + 1))) code |= 0x02;
+                if (sparkle_get_pixel(s, (x + 0), (y + 2))) code |= 0x04;
+                if (sparkle_get_pixel(s, (x + 0), (y + 3))) code |= 0x40;
+                if (sparkle_get_pixel(s, (x + 1), (y + 0))) code |= 0x08;
+                if (sparkle_get_pixel(s, (x + 1), (y + 1))) code |= 0x10;
+                if (sparkle_get_pixel(s, (x + 1), (y + 2))) code |= 0x20;
+                if (sparkle_get_pixel(s, (x + 1), (y + 3))) code |= 0x80;
+                // all braille utf-8 chars are 3 bytes
+                memcpy(back, s->braille[code], 3);
+                back += 3;
+                size += 3;
+            }
+            else
+            {
+                *back = s->text.display[i];
+                back += 1;
+                size += 1;
+            }
+            i += 1;
         }
         *back = '\n';
         back += 1;

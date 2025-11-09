@@ -8,6 +8,12 @@ typedef struct s_sparkle
     char *buffer;
     int width;
     int height;
+    struct s_text
+    {
+        char *display;
+        int width;
+        int height;
+    } text;
 } t_sparkle;
 
 t_sparkle *sparkle_create(int width, int height);
@@ -17,5 +23,9 @@ char sparkle_get_pixel(t_sparkle *s, int x, int y);
 void sparkle_set_pixel(t_sparkle *s, int x, int y, char c);
 void sparkle_line(t_sparkle *s, int x0, int y0, int x1, int y1, int c);
 void sparkle_draw(t_sparkle *s);
+
+void sparkle_clear_text(t_sparkle *s);
+void sparkle_write_text(t_sparkle *s, int x, int y, char *text);
+void sparkle_write_text_at_pixel(t_sparkle *s, int x, int y, char *text);
 
 #endif
